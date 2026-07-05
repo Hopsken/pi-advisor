@@ -25,6 +25,7 @@ The actual pi extension wiring: default-export function, event registration, `/a
   4. `session_shutdown` → controller disposed.
   5. user-abort heuristic: chosen event shape triggers noteUserAbort.
   (Inject a controller factory so index tests use a spy controller, not the real graph.)
+- **Composition regression (required)**: one test wiring the REAL `createAdviseTool({guard, route: controller.route})` against a real `EmissionGuard` + real controller (fake facade/runner): executing the tool once with a fresh note must produce exactly ONE `facade.sendMessage` and return "Recorded."; executing it again with the same note returns "Duplicate advice ignored." with NO second sendMessage. Guards against double-guarding (the guard must be applied only in the tool, not again in `route` — see controller.ts route() doc comment).
 
 ## Acceptance
 `bun test` + typecheck green. `bun run typecheck` proves entry conforms to real `ExtensionAPI`.

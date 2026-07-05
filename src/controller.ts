@@ -220,13 +220,18 @@ export class AdvisorController {
 	}
 
 	/**
-	 * Advise-tool / fake-runner route: on an accepted note, decide delivery and
-	 * emit via `facade.sendMessage`. When a steer fires (interrupts), record the
-	 * immune-window start turn so subsequent concern/blocker notes downgrade.
+	 * Advise-tool / fake-runner route: decide delivery for a GUARD-ACCEPTED note
+	 * and emit via `facade.sendMessage`. The emission guard is applied exactly
+	 * once, by the advise tool's execute handler (#07) before it calls this route
+	 * — the tool needs the guard decision to answer "Recorded." vs "Duplicate
+	 * advice ignored." Re-checking here would double-consume the guard (the
+	 * second accept() of the same note always reports `duplicate`) and silently
+	 * drop every advice in production. When a steer is delivered (it preempts the
+	 * main agent's next LLM call regardless of `triggerTurn`, which only governs
+	 * idle wake-up), record the immune-window start turn so subsequent
+	 * concern/blocker notes downgrade.
 	 */
 	route(note: string, severity: Severity): void {
-		const decision = this.guard.accept(note, severity);
-		if (!decision.allowed) return;
 		const d: DeliveryDecision = resolveDelivery(severity, this.delivery, this.config);
 		const msg: AdvisorMessage = {
 			customType: "advisor",
@@ -236,7 +241,7 @@ export class AdvisorController {
 			triggerTurn: d.triggerTurn,
 		};
 		this.facade.sendMessage(msg);
-		if (d.deliverAs === "steer" && d.triggerTurn) {
+		if (d.deliverAs === "steer") {
 			this.delivery.immuneTurnStart = this.delivery.completedTurns;
 		}
 	}
